@@ -1,15 +1,10 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-import zarr
 import math
 import skimage.feature
 import skimage.segmentation
 import scipy.ndimage as ndi
-
-#from front_tracker import front_watershed
-#from front_tracker import getfront
-#from front_tracker import pre_process
 
 def pre_process(U,V):
     try:
@@ -65,6 +60,8 @@ def front_watershed(U,V,lon,lat):
     front['front'] = front['front'].where(front['front']>0)
     return front
 
+
+
 def getfront(frontin,dx='dx',dy='dy',lat='lat',lon='lon'):
     print('getfront')
     front = frontin
@@ -88,49 +85,3 @@ def getfront(frontin,dx='dx',dy='dy',lat='lat',lon='lon'):
                     winners.append(z)
             front['front'][d] = front.front[d].where(np.isin(front.front[d],winners))
     return front
-
-def fix_noaa(U,V):
-    #ensure latitude and longitude in correct order
-    V = V.assign_coords(longitude=(((V.longitude + 180) % 360) - 180))
-    V = V.sortby(V.longitude)
-    U = U.assign_coords(longitude=(((U.longitude + 180) % 360) - 180))
-    U = U.sortby(U.longitude)
-    #U = U.sortby(U.latitude)
-    #V = V.sortby(V.latitude)
-
-
-U = xr.open_dataset('/media/peter/Storage/data/ERA5/ERA5_ua_950_6hr_2000_2001.nc').chunk({"time":100})
-V = xr.open_dataset('/media/peter/Storage/data/ERA5/ERA5_va_950_6hr_2000_2001.nc').chunk({"time":100})
-
-
-if list(V.longitude.values)==list(U.longitude.values): #check if the file is lekker
-    print('longitudes are good')
-    if list(V.latitude.values)==list(U.latitude.values):
-        print('latitudes are good')
-
-def main(U,V):
-    U,V = pre_process(U,V)
-    U = U.sel(time=slice('1950-01-01', '2100-02-01')) #1950 to last available
-    V = V.sel(time=slice('1950-01-01', '2100-02-01'))
-    U = U.sel(longitude = slice(-40,30))
-    U = U.sel(latitude = slice(-75,-15))
-    V = V.sel(longitude = slice(-40,30))
-    V = V.sel(latitude = slice(-75,-15))
-    U = U.sel(level=U.level[0])
-    V = V.sel(level=V.level[0])
-    lon = U.longitude.values
-    nlon = len(lon)
-    lat = U.latitude.values
-    nlat = len(lat)
-    front = front_watershed(U,V,lon,lat)
-    dx = np.cos(lat*math.pi/180.0)*2*math.pi*6370/360*(lon[-1]-lon[1])/(nlon-1)
-    dy = ((lat[2]-lat[1])/180.0)*6370*math.pi
-    frontout = getfront(front,dx,dy,lat,lon)
-    frontout = frontout[['U1','V1','front']]
-    frontout = frontout.rename({'U1':'uas'})
-    frontout = frontout.rename({'V1':'vas'})
-    return frontout
-
-out = main(U,V)
-
-out[['front']].to_zarr('ERA5_2000_frontal.zarr')
