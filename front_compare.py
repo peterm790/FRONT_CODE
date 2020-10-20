@@ -10,7 +10,7 @@ import cmocean
 
 for mod in ['NOAA','ERA5']:
     print(mod)
-    front = xr.open_zarr(str(mod)+'_2000_frontal.zarr')
+    front = xr.open_zarr('../FRONT_OUT/'+str(mod)+'_2000_frontal.zarr')
     dic={}
     for seas in ['DJF','MAM','JJA','SON']:
         x = front.where(front.time.dt.season==seas).dropna(dim='time',how='all')
@@ -22,8 +22,8 @@ for mod in ['NOAA','ERA5']:
         plt.rcParams['hatch.linewidth']=1
         plt.rcParams['hatch.color']='black'
         ax.coastlines('50m', linewidth=0.8)
-        dic[seas].plot()
+        dic[seas].plot(vmin = 0,vmax = 80)
         ax.set_extent([-40, 30, -15, -75], ccrs.PlateCarree())
-        plt.savefig(str(mod)+'_'+str(seas)+'.png')
+        plt.savefig('../FRONT_OUT/'+str(mod)+'_'+str(seas)+'.png')
         plt.close()
         print(seas,float(dic[seas].sel(latitude=-35).sel(longitude = 16)))

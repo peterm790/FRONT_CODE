@@ -31,7 +31,7 @@ ws = np.sqrt(np.square(U.uwnd) + np.square(V.vwnd))
 Dir=np.mod(180+np.rad2deg(np.arctan2(U.uwnd, V.vwnd)),360)
 
 
-front = xr.open_zarr('out_frontal.zarr')
+front = xr.open_zarr('../NOAA_2000_frontal.zarr')
 
 front = front.front/front.front
 front = front.fillna(0)

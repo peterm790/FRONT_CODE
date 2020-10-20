@@ -46,8 +46,8 @@ def front_watershed(U,V,lon,lat):
     front = front.rename({'uas':'x'})
     front['U2'] = U.uas #now
     front['V2'] = V.vas #now
-    front['U1'] = xr.DataArray(np.concatenate([U.uas.values[:2]*np.nan,U.uas.values[:-2]]),dims=("time","latitude", "longitude"), coords={"time":front.time.values,"longitude":lon ,"latitude": lat})
-    front['V1'] = xr.DataArray(np.concatenate([V.vas.values[:2]*np.nan,V.vas.values[:-2]]),dims=("time","latitude", "longitude"), coords={"time":front.time.values,"longitude":lon ,"latitude": lat})
+    front['U1'] = xr.DataArray(np.concatenate([U.uas.values[:1]*np.nan,U.uas.values[:-1]]),dims=("time","latitude", "longitude"), coords={"time":front.time.values,"longitude":lon ,"latitude": lat})
+    front['V1'] = xr.DataArray(np.concatenate([V.vas.values[:1]*np.nan,V.vas.values[:-1]]),dims=("time","latitude", "longitude"), coords={"time":front.time.values,"longitude":lon ,"latitude": lat})
     front = front.sel(time=front.time[2:])
     x = xr.where(front['U1'].values>0,front['U1'].values/front['U1'].values,np.nan)
     x = xr.where(front['V1'].values<0,x,np.nan)
@@ -95,12 +95,15 @@ def fix_noaa(U,V):
     V = V.sortby(V.longitude)
     U = U.assign_coords(longitude=(((U.longitude + 180) % 360) - 180))
     U = U.sortby(U.longitude)
-    #U = U.sortby(U.latitude)
-    #V = V.sortby(V.latitude)
-
+    U = U.sortby(U.latitude)
+    V = V.sortby(V.latitude)
+    U = U.where((U.time.dt.hour==0)|(U.time.dt.hour==6)|(U.time.dt.hour==12)|(U.time.dt.hour==18)).dropna(dim='time',how='all')
+    V = V.where((V.time.dt.hour==0)|(V.time.dt.hour==6)|(V.time.dt.hour==12)|(V.time.dt.hour==18)).dropna(dim='time',how='all')
+    return U,V
 
 U = xr.open_dataset('/media/peter/Storage/data/ERA5/ERA5_ua_950_6hr_2000_2001.nc').chunk({"time":100})
 V = xr.open_dataset('/media/peter/Storage/data/ERA5/ERA5_va_950_6hr_2000_2001.nc').chunk({"time":100})
+
 
 
 if list(V.longitude.values)==list(U.longitude.values): #check if the file is lekker
@@ -109,6 +112,7 @@ if list(V.longitude.values)==list(U.longitude.values): #check if the file is lek
         print('latitudes are good')
 
 def main(U,V):
+    U,V = fix_noaa(U,V)
     U,V = pre_process(U,V)
     U = U.sel(time=slice('1950-01-01', '2100-02-01')) #1950 to last available
     V = V.sel(time=slice('1950-01-01', '2100-02-01'))
