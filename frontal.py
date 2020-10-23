@@ -6,6 +6,8 @@ import math
 import skimage.feature
 import skimage.segmentation
 import scipy.ndimage as ndi
+import glob
+import dask
 
 #from front_tracker import front_watershed
 #from front_tracker import getfront
@@ -37,6 +39,15 @@ def pre_process(U,V):
     except:
         U = U.rename({'uwnd':'uas'})
         V = V.rename({'vwnd':'vas'})
+    try:
+        test = U.level
+    except:
+        try:
+            U.plev
+            U = U.rename({'plev':'level'})
+            V = V.rename({'plev':'level'})
+        except:
+            pass
     return U,V
 
 def front_watershed(U,V,lon,lat):
@@ -46,8 +57,8 @@ def front_watershed(U,V,lon,lat):
     front = front.rename({'uas':'x'})
     front['U2'] = U.uas #now
     front['V2'] = V.vas #now
-    front['U1'] = xr.DataArray(np.concatenate([U.uas.values[:1]*np.nan,U.uas.values[:-1]]),dims=("time","latitude", "longitude"), coords={"time":front.time.values,"longitude":lon ,"latitude": lat})
-    front['V1'] = xr.DataArray(np.concatenate([V.vas.values[:1]*np.nan,V.vas.values[:-1]]),dims=("time","latitude", "longitude"), coords={"time":front.time.values,"longitude":lon ,"latitude": lat})
+    front['U1'] = xr.DataArray(np.concatenate([U.uas.values[:2]*np.nan,U.uas.values[:-2]]),dims=("time","latitude", "longitude"), coords={"time":front.time.values,"longitude":lon ,"latitude": lat})
+    front['V1'] = xr.DataArray(np.concatenate([V.vas.values[:2]*np.nan,V.vas.values[:-2]]),dims=("time","latitude", "longitude"), coords={"time":front.time.values,"longitude":lon ,"latitude": lat})
     front = front.sel(time=front.time[2:])
     x = xr.where(front['U1'].values>0,front['U1'].values/front['U1'].values,np.nan)
     x = xr.where(front['V1'].values<0,x,np.nan)
@@ -97,31 +108,24 @@ def fix_noaa(U,V):
     U = U.sortby(U.longitude)
     U = U.sortby(U.latitude)
     V = V.sortby(V.latitude)
-    U = U.where((U.time.dt.hour==0)|(U.time.dt.hour==6)|(U.time.dt.hour==12)|(U.time.dt.hour==18)).dropna(dim='time',how='all')
-    V = V.where((V.time.dt.hour==0)|(V.time.dt.hour==6)|(V.time.dt.hour==12)|(V.time.dt.hour==18)).dropna(dim='time',how='all')
+    #U = U.where((U.time.dt.hour==0)|(U.time.dt.hour==6)|(U.time.dt.hour==12)|(U.time.dt.hour==18)).dropna(dim='time',how='all')
+    #V = V.where((V.time.dt.hour==0)|(V.time.dt.hour==6)|(V.time.dt.hour==12)|(V.time.dt.hour==18)).dropna(dim='time',how='all')
     return U,V
 
-U = xr.open_dataset('/media/peter/Storage/data/ERA5/ERA5_ua_950_6hr_2000_2001.nc').chunk({"time":100})
-V = xr.open_dataset('/media/peter/Storage/data/ERA5/ERA5_va_950_6hr_2000_2001.nc').chunk({"time":100})
-
-
-
-if list(V.longitude.values)==list(U.longitude.values): #check if the file is lekker
-    print('longitudes are good')
-    if list(V.latitude.values)==list(U.latitude.values):
-        print('latitudes are good')
 
 def main(U,V):
-    U,V = fix_noaa(U,V)
+    print('pre_process')
     U,V = pre_process(U,V)
+    print('fix_noaa')
+    U,V = fix_noaa(U,V)
     U = U.sel(time=slice('1950-01-01', '2100-02-01')) #1950 to last available
     V = V.sel(time=slice('1950-01-01', '2100-02-01'))
     U = U.sel(longitude = slice(-40,30))
     U = U.sel(latitude = slice(-75,-15))
     V = V.sel(longitude = slice(-40,30))
     V = V.sel(latitude = slice(-75,-15))
-    U = U.sel(level=U.level[0])
-    V = V.sel(level=V.level[0])
+    #U = U.sel(level=U.level[0])
+    #V = V.sel(level=V.level[0])
     lon = U.longitude.values
     nlon = len(lon)
     lat = U.latitude.values
@@ -135,6 +139,21 @@ def main(U,V):
     frontout = frontout.rename({'V1':'vas'})
     return frontout
 
-out = main(U,V)
 
-out[['front']].to_zarr('ERA5_2000_frontal.zarr')
+
+
+uas = glob.glob("/home/peter/Downloads/uwnd/uwnd*")
+vas = glob.glob("/home/peter/Downloads/vwnd/vwnd*")
+uas.sort()
+vas.sort()
+for u,v,i in list(zip(uas,vas,range(len(uas)))):
+    U = xr.open_mfdataset(u)
+    print('U is done!')
+    V = xr.open_mfdataset(v)
+    print('call main')
+    front = main(U,V)
+    U.close()
+    V.close()
+    print('write_file')
+    front[['front']].to_netcdf('../FRONT_OUT/NOAA/'+str(i)+'_front.nc')
+    front.close()

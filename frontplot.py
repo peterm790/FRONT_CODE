@@ -11,6 +11,7 @@ import cmocean
 #daily
 U = xr.open_dataset('/media/peter/Storage/data/NOAA/uwnd.10m.2000.nc')
 V = xr.open_dataset('/media/peter/Storage/data/NOAA/vwnd.10m.2000.nc')
+U = U.sel(time=slice('2000-06-01','2000-08-30'))
 V = V.rename({'lon':'longitude'})
 V = V.rename({'lat':'latitude'})
 U = U.rename({'lon':'longitude'})
@@ -50,9 +51,9 @@ for i in range(len(front.time)):
     F =ax.contourf(U.longitude,U.latitude,front[i],levels = [0.99,1.01], hatches=["x"], transform = ccrs.PlateCarree(),alpha=0,zorder=3)
     ax.set_extent([-40, 30, -15, -75], ccrs.PlateCarree())
     plt.title('ERA5 Front Detection - day\n'+str(U.time.values[i]))
-    plt.savefig('demonstration/'+str(i)+'togif.png')
+    plt.savefig('Front_plot/'+str(i)+'togif.png')
     plt.close()
 
 
 
-#cat `ls -v *togif.png` | ffmpeg -framerate 1 -f image2pipe -i - output_daily.mp4
+#cat `ls -v *togif.png` | ffmpeg -framerate 6 -f image2pipe -i - output_daily.mp4

@@ -22,7 +22,7 @@ for mod in ['NOAA','ERA5']:
         plt.rcParams['hatch.linewidth']=1
         plt.rcParams['hatch.color']='black'
         ax.coastlines('50m', linewidth=0.8)
-        dic[seas].plot(vmin = 0,vmax = 80)
+        dic[seas].plot()
         ax.set_extent([-40, 30, -15, -75], ccrs.PlateCarree())
         plt.savefig('../FRONT_OUT/'+str(mod)+'_'+str(seas)+'.png')
         plt.close()
